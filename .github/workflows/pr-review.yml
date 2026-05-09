@@ -1,0 +1,29 @@
+name: Grok PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  grok-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Grok PR Review
+        uses: xai-org/grok-actions-reviewer@main  # Placeholder - we'll create our own logic
+        env:
+          GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
+        with:
+          pr-number: ${{ github.event.pull_request.number }}
+          repo: ${{ github.repository }}
+          review-instructions: |
+            Provide a helpful, constructive code review.
+            Focus on:
+            - Code quality and best practices
+            - Potential bugs or edge cases
+            - Performance and security concerns
+            - Suggestions for improvements
+            Keep feedback friendly and actionable.
