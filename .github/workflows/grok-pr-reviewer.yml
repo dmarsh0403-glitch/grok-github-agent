@@ -11,23 +11,56 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Get PR Diff
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} --color=never > pr_diff.txt || echo 'No diff available' > pr_diff.txt
+
       - name: Grok AI Code Review
         env:
           GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Grok PR Review Agent starting..."
-          
-          # This is a placeholder. In the next step we'll add a proper Python script or use curl to Grok API
-          echo "To be implemented with Grok API calls"
-          
-          # Example: Post a comment
-          gh pr comment ${{ github.event.pull_request.number }} --body "🤖 Grok is analyzing this PR... (setup in progress)"
+          echo "🤖 Starting Grok code review..."
+
+          # Truncate diff if too large (cost control)
+          if [ $(wc -c < pr_diff.txt) -gt 15000 ]; then
+            echo "Diff too large, truncating..." >> pr_diff.txt
+            tail -c 14000 pr_diff.txt > pr_diff_truncated.txt
+            mv pr_diff_truncated.txt pr_diff.txt
+          fi
+
+          cat > prompt.json << 'EOF'
+{
+  "model": "grok-4.1-fast",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an expert senior software engineer. Provide a concise, constructive code review. Focus on: bugs, security issues, performance, readability, and best practices. Be encouraging but honest."
+    },
+    {
+      "role": "user",
+      "content": "Review this pull request diff and give feedback:\n\n$(cat pr_diff.txt)"
+    }
+  ],
+  "temperature": 0.5,
+  "max_tokens": 1000
+}
+EOF
+
+          RESPONSE=$(curl -s -X POST https://api.x.ai/v1/chat/completions \
+            -H "Authorization: Bearer $GROK_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d @prompt.json)
+
+          REVIEW=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "Review failed - check API key and GitHub Actions logs."')
+
+          gh pr comment ${{ github.event.pull_request.number }} --body "$REVIEW"
         shell: bash
