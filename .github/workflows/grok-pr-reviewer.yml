@@ -1,0 +1,33 @@
+name: Grok PR Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Grok AI Code Review
+        env:
+          GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Grok PR Review Agent starting..."
+          
+          # This is a placeholder. In the next step we'll add a proper Python script or use curl to Grok API
+          echo "To be implemented with Grok API calls"
+          
+          # Example: Post a comment
+          gh pr comment ${{ github.event.pull_request.number }} --body "🤖 Grok is analyzing this PR... (setup in progress)"
+        shell: bash
